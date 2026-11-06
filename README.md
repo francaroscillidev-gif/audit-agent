@@ -17,6 +17,10 @@ Traditional SAST/DAST tools overwhelm developers with false positives because th
 - **Automated Verification Harness Synthesis**: Automatically drafts isolated test scripts (Foundry `.t.sol`, Pytest) targeted at proving the invariant breach.
 - **Empirical Execution & Invariant Checking**: Runs tests in an isolated sandbox or state simulator to empirically confirm exploits before alerting developers.
 - **False-Positive Elimination**: Drastically reduces alert fatigue by discarding unconfirmed theoretical warnings.
+- **Interactive Validated Patch Applier**: Automatically applies the verified security fix to source files and runs immediate re-verification (`audit-agent fix <target>`).
+- **Exploit-to-Test Transpiler**: Exports verified exploits as permanent regression test files (`test/Audit_HYP_001.t.sol` or `pytest`) so bugs can never recur (`audit-agent export-tests <target>`).
+- **Continuous Watch Daemon**: Real-time auditing background daemon that instantly re-audits code on file save (`audit-agent watch <target>`).
+- **Multi-Model LLM Adapter**: Out-of-the-box support for Google Gemini, OpenAI, Anthropic, local Ollama (Llama 3 / DeepSeek-Coder), and offline expert engine (`--provider gemini|openai|anthropic|ollama|offline_expert`).
 - **Stateful Invariant Fuzzing**: Runs property-based transaction sequences to discover non-trivial state corruption (solvency breaches, privilege escalation).
 - **OASIS SARIF v2.1.0 Export**: Full compatibility with GitHub Code Scanning alerts, VS Code, and SonarQube (`--sarif results.sarif`).
 - **Compliance Taxonomy Matrix**: Direct cross-referencing to Web3 **SWC Registry** (e.g., SWC-107, SWC-105) and universal **CWE / OWASP Top 10** standards.
@@ -67,6 +71,28 @@ uv run audit-agent demo
 To audit with Markdown, HTML Dashboard, and GitHub Code Scanning SARIF:
 ```bash
 uv run audit-agent scan examples/ --output audit_report.md --html dashboard.html --sarif results.sarif
+```
+
+### Automatically Apply Verified Patches
+Apply the security fix directly to the target file with rollback protection and instant re-verification:
+```bash
+# Preview what changes would be made
+uv run audit-agent fix examples/VulnerableVault.sol --dry-run
+
+# Apply and confirm invariant holding
+uv run audit-agent fix examples/VulnerableVault.sol
+```
+
+### Export Verified Exploits as Permanent Regression Tests
+Transpile confirmed invariant breaches into ready-to-commit Foundry or Pytest test suites:
+```bash
+uv run audit-agent export-tests examples/VulnerableVault.sol --outdir tests/security
+```
+
+### Continuous Watch Mode
+Monitor files for modifications and re-audit on save:
+```bash
+uv run audit-agent watch examples/
 ```
 
 ### Property-Based Invariant Fuzzing

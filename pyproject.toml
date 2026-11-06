@@ -1,6 +1,6 @@
 [project]
 name = "audit-agent"
-version = "0.2.0"
+version = "0.3.0"
 description = "Autonomous Security & Compliance Agent with Empirical Proof-of-Concept Verification"
 readme = "README.md"
 license = { text = "Apache-2.0" }

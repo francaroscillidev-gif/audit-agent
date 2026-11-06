@@ -1,5 +1,6 @@
 """Unit and integration test suite for AuditAgent."""
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from audit_agent.models import TargetType, VerificationStatus, VerificationTestHarness, VulnerabilityCategory
@@ -8,9 +9,12 @@ from audit_agent.parsers.webapp import WebAPIASTParser
 from audit_agent.orchestrator import AuditOrchestrator
 from audit_agent.reporting.html_report import HTMLReportGenerator
 from audit_agent.reporting.sarif_report import SARIFReportGenerator
+from audit_agent.reporting.test_exporter import TestExporter
 from audit_agent.reasoner.engine import SemanticReasoner
+from audit_agent.reasoner.providers import LLMProviderAdapter
 from audit_agent.compliance.registry import ComplianceRegistry
 from audit_agent.fuzzing.invariants import StatefulInvariantFuzzer
+from audit_agent.remediation.applier import PatchApplier
 
 
 def test_solidity_parser_heuristics():
@@ -108,6 +112,42 @@ def test_stateful_invariant_fuzzing():
     solvency_res = next(r for r in results if r.invariant_name == "invariant_vaultSolvency")
     assert solvency_res.passed is False
     assert len(solvency_res.failure_counterexample) > 0
+
+
+def test_test_exporter():
+    orchestrator = AuditOrchestrator()
+    summary = orchestrator.run_audit("examples/VulnerableVault.sol")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        files = TestExporter.export(summary, tmpdir)
+        assert len(files) >= 1
+        assert any(f.suffix == ".sol" for f in files)
+
+
+def test_patch_applier_and_reverification():
+    orchestrator = AuditOrchestrator()
+    summary = orchestrator.run_audit("examples/VulnerableVault.sol")
+    reentrancy_finding = next(f for f in summary.findings if f.hypothesis.category == VulnerabilityCategory.REENTRANCY)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        copy_sol = Path(tmpdir) / "VulnerableVault.sol"
+        copy_sol.write_text(Path("examples/VulnerableVault.sol").read_text())
+
+        # Update finding target file to temporary copy
+        reentrancy_finding.hypothesis.target_file = str(copy_sol)
+        success, msg = PatchApplier.apply_and_verify(
+            reentrancy_finding,
+            orchestrator.solidity_verifier,
+            orchestrator.reasoner
+        )
+        assert success is True
+        assert "neutralized" in msg
+
+
+def test_llm_provider_adapter():
+    adapter = LLMProviderAdapter(provider="offline_expert")
+    assert adapter.complete("test prompt") is None
+    gemini_adapter = LLMProviderAdapter(provider="gemini", api_key="dummy_key")
+    assert gemini_adapter.model == "gemini-2.5-flash"
 
 
 def test_project_wide_audit():

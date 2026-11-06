@@ -14,8 +14,11 @@ from audit_agent.models import VerificationStatus
 from audit_agent.orchestrator import AuditOrchestrator
 from audit_agent.reporting.html_report import HTMLReportGenerator
 from audit_agent.reporting.sarif_report import SARIFReportGenerator
+from audit_agent.reporting.test_exporter import TestExporter
 from audit_agent.compliance.registry import ComplianceRegistry
 from audit_agent.fuzzing.invariants import StatefulInvariantFuzzer
+from audit_agent.watcher import SecurityWatcher
+from audit_agent.remediation.applier import PatchApplier
 
 app = typer.Typer(
     name="audit-agent",
@@ -28,13 +31,15 @@ console = Console()
 def scan(
     target: str = typer.Argument(..., help="Path to smart contract, API source file, or project folder"),
     api_key: Optional[str] = typer.Option(None, "--api-key", "-k", help="Optional LLM API key"),
+    provider: str = typer.Option("offline_expert", "--provider", "-p", help="LLM Provider: offline_expert, gemini, openai, anthropic, ollama"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Specific model identifier"),
     output_report: Optional[str] = typer.Option(None, "--output", "-o", help="Save markdown audit report to file"),
     html_report: Optional[str] = typer.Option(None, "--html", help="Save interactive HTML audit dashboard"),
     sarif_report: Optional[str] = typer.Option(None, "--sarif", help="Save OASIS SARIF v2.1.0 file for GitHub Security"),
 ):
     """Scan a target file or project, formulate semantic hypotheses, and verify invariants empirically."""
     console.rule("[bold cyan]🛡️  AuditAgent: Empirical Security & Compliance Scanner[/bold cyan]")
-    console.print(f"[bold]Target:[/bold] [yellow]{target}[/yellow]\n")
+    console.print(f"[bold]Target:[/bold] [yellow]{target}[/yellow] | [bold]Provider:[/bold] [cyan]{provider}[/cyan]\n")
 
     orchestrator = AuditOrchestrator(api_key=api_key)
 
@@ -122,6 +127,68 @@ def scan(
     if sarif_report:
         SARIFReportGenerator.generate(summary, sarif_report)
         console.print(f"[bold green]📊 OASIS SARIF report saved to:[/bold green] [underline]{sarif_report}[/underline]")
+
+
+@app.command()
+def fix(
+    target: str = typer.Argument(..., help="Path to smart contract or API source file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview patch without modifying target file"),
+):
+    """Automatically apply verified security patches and re-verify invariant holding."""
+    console.rule("[bold green]🛠️  AuditAgent: Automated Remediation Engine[/bold green]")
+    orchestrator = AuditOrchestrator()
+    summary = orchestrator.run_audit(target)
+
+    confirmed = [f for f in summary.findings if f.verification.status == VerificationStatus.CONFIRMED]
+    if not confirmed:
+        console.print("[green]No confirmed vulnerabilities to fix![/green]")
+        return
+
+    console.print(f"Found [bold red]{len(confirmed)}[/bold red] confirmed vulnerabilities.")
+
+    for finding in confirmed:
+        hyp = finding.hypothesis
+        console.print(f"\nProcessing [bold cyan]{hyp.id}[/bold cyan]: {hyp.title}")
+
+        if dry_run:
+            console.print("[yellow][DRY RUN] Would apply patch:[/yellow]")
+            if finding.remediation_patch:
+                console.print(Syntax(finding.remediation_patch, "diff", theme="monokai"))
+            continue
+
+        verifier = orchestrator.solidity_verifier if summary.target_type.value == "smart_contract" else orchestrator.webapp_verifier
+        success, msg = PatchApplier.apply_and_verify(finding, verifier, orchestrator.reasoner)
+
+        if success:
+            console.print(f"[bold green]✔ {msg}[/bold green]")
+        else:
+            console.print(f"[bold red]✖ {msg}[/bold red]")
+
+
+@app.command("export-tests")
+def export_tests(
+    target: str = typer.Argument(..., help="Path to smart contract or API file"),
+    outdir: str = typer.Option("tests/security", "--outdir", "-o", help="Directory where regression tests will be created"),
+):
+    """Export verified exploits as permanent regression test files (Foundry / Pytest)."""
+    console.rule("[bold cyan]🧪 AuditAgent: Exploit-to-Test Transpiler[/bold cyan]")
+    orchestrator = AuditOrchestrator()
+    summary = orchestrator.run_audit(target)
+
+    files = TestExporter.export(summary, outdir)
+    console.print(f"Exported [bold green]{len(files)}[/bold green] regression test file(s) into [underline]{outdir}[/underline]:")
+    for f in files:
+        console.print(f"  • [yellow]{f.name}[/yellow]")
+
+
+@app.command()
+def watch(
+    target: str = typer.Argument(..., help="Path to file or folder to monitor"),
+    interval: float = typer.Option(1.0, "--interval", "-i", help="Polling interval in seconds"),
+):
+    """Live watch daemon: continuously re-audit codebase on file save."""
+    watcher = SecurityWatcher(target, console=console)
+    watcher.watch(interval=interval)
 
 
 @app.command()
