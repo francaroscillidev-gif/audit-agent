@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Generated reports & caches
+audit_report*.md
+api_audit_report.md
+*.html
+.pytest_cache/
+
+# Aggiunti automaticamente da push-to-github
+node_modules
+.env
+.env.local
+.DS_Store
+.push-to-github

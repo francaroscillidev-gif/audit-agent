@@ -1,0 +1,28 @@
+[project]
+name = "audit-agent"
+version = "0.1.0"
+description = "Autonomous Security & Compliance Agent with Empirical Proof-of-Concept Verification"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "franca roscilli", email = "francaroscillidev@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "jinja2>=3.1.6",
+    "pydantic>=2.14.3",
+    "rich>=15.0.0",
+    "typer>=0.28.0",
+]
+
+[project.scripts]
+audit-agent = "audit_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
