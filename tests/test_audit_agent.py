@@ -1,12 +1,16 @@
 """Unit and integration test suite for AuditAgent."""
+import json
 import tempfile
 from pathlib import Path
-from audit_agent.models import TargetType, VerificationStatus, VerificationTestHarness
+from audit_agent.models import TargetType, VerificationStatus, VerificationTestHarness, VulnerabilityCategory
 from audit_agent.parsers.solidity import SolidityASTParser
 from audit_agent.parsers.webapp import WebAPIASTParser
 from audit_agent.orchestrator import AuditOrchestrator
 from audit_agent.reporting.html_report import HTMLReportGenerator
+from audit_agent.reporting.sarif_report import SARIFReportGenerator
 from audit_agent.reasoner.engine import SemanticReasoner
+from audit_agent.compliance.registry import ComplianceRegistry
+from audit_agent.fuzzing.invariants import StatefulInvariantFuzzer
 
 
 def test_solidity_parser_heuristics():
@@ -71,6 +75,39 @@ def test_html_report_generator():
         assert "<!DOCTYPE html>" in content
         assert "Confirmed Vulnerabilities" in content
         assert "HYP-001" in content
+
+
+def test_sarif_report_generator():
+    orchestrator = AuditOrchestrator()
+    summary = orchestrator.run_audit("examples/VulnerableVault.sol")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        sarif_file = Path(tmpdir) / "report.sarif"
+        SARIFReportGenerator.generate(summary, str(sarif_file))
+        assert sarif_file.exists()
+        data = json.loads(sarif_file.read_text())
+        assert data["version"] == "2.1.0"
+        assert len(data["runs"]) > 0
+        assert len(data["runs"][0]["results"]) >= 1
+
+
+def test_compliance_registry():
+    reentrancy_info = ComplianceRegistry.get_compliance_info(VulnerabilityCategory.REENTRANCY)
+    assert reentrancy_info["swc_id"] == "SWC-107"
+    assert reentrancy_info["cwe_id"] == "CWE-841"
+
+    idor_info = ComplianceRegistry.get_compliance_info(VulnerabilityCategory.IDOR)
+    assert idor_info["cwe_id"] == "CWE-639"
+
+
+def test_stateful_invariant_fuzzing():
+    vault_code = Path("examples/VulnerableVault.sol").read_text()
+    fuzzer = StatefulInvariantFuzzer(vault_code, iterations=50)
+    results = fuzzer.run_fuzzing()
+    assert len(results) >= 2
+    # Check that solvency invariant caught the reentrancy counterexample
+    solvency_res = next(r for r in results if r.invariant_name == "invariant_vaultSolvency")
+    assert solvency_res.passed is False
+    assert len(solvency_res.failure_counterexample) > 0
 
 
 def test_project_wide_audit():

@@ -17,8 +17,12 @@ Traditional SAST/DAST tools overwhelm developers with false positives because th
 - **Automated Verification Harness Synthesis**: Automatically drafts isolated test scripts (Foundry `.t.sol`, Pytest) targeted at proving the invariant breach.
 - **Empirical Execution & Invariant Checking**: Runs tests in an isolated sandbox or state simulator to empirically confirm exploits before alerting developers.
 - **False-Positive Elimination**: Drastically reduces alert fatigue by discarding unconfirmed theoretical warnings.
+- **Stateful Invariant Fuzzing**: Runs property-based transaction sequences to discover non-trivial state corruption (solvency breaches, privilege escalation).
+- **OASIS SARIF v2.1.0 Export**: Full compatibility with GitHub Code Scanning alerts, VS Code, and SonarQube (`--sarif results.sarif`).
+- **Compliance Taxonomy Matrix**: Direct cross-referencing to Web3 **SWC Registry** (e.g., SWC-107, SWC-105) and universal **CWE / OWASP Top 10** standards.
+- **Interactive Dark-Themed HTML Dashboard**: Self-contained visual dashboard with interactive filters, trace viewer, and colorized diffs.
 - **Automated Remediation**: Generates git-compatible unified diff (`patch`) fixes for confirmed bugs.
-- **Auditing Reports**: Exports actionable, structured audit reports in Markdown and JSON.
+- **Self-Healing Harness Loop**: Automatically intercepts compiler errors and repairs test harnesses.
 
 ---
 
@@ -59,15 +63,28 @@ Test the engine against a smart contract containing real reentrancy, authorizati
 uv run audit-agent demo
 ```
 
-### Scan a Target File
-To audit a Solidity contract:
+### Scan a Target File or Directory
+To audit with Markdown, HTML Dashboard, and GitHub Code Scanning SARIF:
 ```bash
-uv run audit-agent scan examples/VulnerableVault.sol --output audit_report.md
+uv run audit-agent scan examples/ --output audit_report.md --html dashboard.html --sarif results.sarif
 ```
 
-To audit a Web App API:
+### Property-Based Invariant Fuzzing
+Stress-test contract state across 100 randomized transaction sequences:
 ```bash
-uv run audit-agent scan examples/vulnerable_api.py --output api_report.md
+uv run audit-agent fuzz examples/VulnerableVault.sol --runs 100
+```
+
+### View Compliance Standards Matrix
+Display mappings between vulnerability categories, SWC, CWE, and OWASP:
+```bash
+uv run audit-agent compliance
+```
+
+### Initialize GitHub Actions CI/CD
+Generate `.github/workflows/security-audit.yml` to automatically audit pull requests:
+```bash
+uv run audit-agent init-ci
 ```
 
 ---

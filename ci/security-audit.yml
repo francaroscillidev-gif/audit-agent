@@ -27,7 +27,13 @@ jobs:
 
       - name: Run Empirical Audit
         run: |
-          uv run audit-agent scan . --output audit-summary.md --html audit-dashboard.html
+          uv run audit-agent scan . --output audit-summary.md --html audit-dashboard.html --sarif audit-results.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: audit-results.sarif
 
       - name: Upload Audit Dashboard
         uses: actions/upload-artifact@v4

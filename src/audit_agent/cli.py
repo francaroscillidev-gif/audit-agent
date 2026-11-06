@@ -13,6 +13,9 @@ from rich import print as rprint
 from audit_agent.models import VerificationStatus
 from audit_agent.orchestrator import AuditOrchestrator
 from audit_agent.reporting.html_report import HTMLReportGenerator
+from audit_agent.reporting.sarif_report import SARIFReportGenerator
+from audit_agent.compliance.registry import ComplianceRegistry
+from audit_agent.fuzzing.invariants import StatefulInvariantFuzzer
 
 app = typer.Typer(
     name="audit-agent",
@@ -27,6 +30,7 @@ def scan(
     api_key: Optional[str] = typer.Option(None, "--api-key", "-k", help="Optional LLM API key"),
     output_report: Optional[str] = typer.Option(None, "--output", "-o", help="Save markdown audit report to file"),
     html_report: Optional[str] = typer.Option(None, "--html", help="Save interactive HTML audit dashboard"),
+    sarif_report: Optional[str] = typer.Option(None, "--sarif", help="Save OASIS SARIF v2.1.0 file for GitHub Security"),
 ):
     """Scan a target file or project, formulate semantic hypotheses, and verify invariants empirically."""
     console.rule("[bold cyan]🛡️  AuditAgent: Empirical Security & Compliance Scanner[/bold cyan]")
@@ -45,6 +49,7 @@ def scan(
     table = Table(title="[bold]Hypothesis Verification & False Positive Pruning[/bold]", expand=True)
     table.add_column("ID", style="cyan", width=10)
     table.add_column("Title", style="white")
+    table.add_column("Standard", style="magenta", width=12)
     table.add_column("Severity", width=10)
     table.add_column("Status", width=16)
     table.add_column("Latency", justify="right", width=10)
@@ -52,6 +57,8 @@ def scan(
     for finding in summary.findings:
         hyp = finding.hypothesis
         ver = finding.verification
+        comp = ComplianceRegistry.get_compliance_info(hyp.category)
+        std_tag = comp["swc_id"] if comp["swc_id"] != "N/A" else comp["cwe_id"]
 
         if ver.status == VerificationStatus.CONFIRMED:
             status_text = Text("CONFIRMED", style="bold red")
@@ -64,6 +71,7 @@ def scan(
         table.add_row(
             hyp.id,
             hyp.title,
+            std_tag,
             Text(hyp.severity.value.upper(), style=sev_style),
             status_text,
             f"{ver.duration_ms:.1f}ms"
@@ -87,7 +95,9 @@ def scan(
         ver = finding.verification
 
         if ver.status == VerificationStatus.CONFIRMED:
+            comp = ComplianceRegistry.get_compliance_info(hyp.category)
             console.rule(f"[bold red]🚨 Confirmed Bug: {hyp.id} - {hyp.title}[/bold red]")
+            console.print(f"[bold]Compliance Standard:[/bold] {comp['swc_id']} / {comp['cwe_id']} ({comp['owasp_category']})")
             console.print(f"[bold]Invariant Breach:[/bold] {hyp.expected_invariant_breach}")
             console.print(f"[bold]Exploit Proof Output:[/bold]")
             console.print(Panel(ver.output_log, border_style="red", expand=False))
@@ -107,6 +117,83 @@ def scan(
     if html_report:
         HTMLReportGenerator.generate(summary, html_report)
         console.print(f"[bold green]🌐 Interactive HTML report saved to:[/bold green] [underline]{html_report}[/underline]")
+
+    # SARIF export
+    if sarif_report:
+        SARIFReportGenerator.generate(summary, sarif_report)
+        console.print(f"[bold green]📊 OASIS SARIF report saved to:[/bold green] [underline]{sarif_report}[/underline]")
+
+
+@app.command()
+def fuzz(
+    target: str = typer.Argument(..., help="Path to smart contract .sol file"),
+    runs: int = typer.Option(100, "--runs", "-r", help="Number of stateful fuzzing permutations"),
+):
+    """Run stateful property-based invariant fuzzing on a smart contract."""
+    console.rule("[bold magenta]🎲 AuditAgent: Stateful Property & Invariant Fuzzer[/bold magenta]")
+    target_path = Path(target)
+    if not target_path.exists():
+        console.print(f"[red]Target file not found: {target}[/red]")
+        raise typer.Exit(code=1)
+
+    source_code = target_path.read_text(encoding="utf-8")
+    fuzzer = StatefulInvariantFuzzer(source_code, iterations=runs)
+
+    with console.status(f"[bold yellow]Fuzzing state invariants across {runs} call sequences...[/bold yellow]"):
+        results = fuzzer.run_fuzzing()
+
+    for res in results:
+        status_style = "bold green" if res.passed else "bold red"
+        status_label = "PASSED" if res.passed else "FAILED / BREACHED"
+
+        console.print(Panel(
+            f"[bold]Invariant:[/bold] {res.invariant_name}\n"
+            f"[bold]Description:[/bold] {res.property_description}\n"
+            f"[bold]Status:[/bold] [{status_style}]{status_label}[/{status_style}] (after {res.iterations_run} sequences)\n\n"
+            f"{res.log}",
+            title=f"Property: {res.invariant_name}",
+            border_style="green" if res.passed else "red"
+        ))
+
+        if not res.passed and res.failure_counterexample:
+            console.print("[bold yellow]💥 Minimal Fuzz Counterexample Sequence:[/bold yellow]")
+            step_table = Table(expand=True)
+            step_table.add_column("Step", width=6)
+            step_table.add_column("Actor", style="cyan")
+            step_table.add_column("Call", style="white")
+            step_table.add_column("Value (ETH)", justify="right")
+
+            for step in res.failure_counterexample:
+                step_table.add_row(
+                    str(step.step_number),
+                    step.actor,
+                    f"{step.function_name}({step.args if step.args else ''})",
+                    f"{step.value_eth:.1f}"
+                )
+            console.print(step_table)
+            console.print()
+
+
+@app.command()
+def compliance():
+    """Display the SWC Registry, CWE, and OWASP compliance mapping table."""
+    console.rule("[bold blue]📋 Security & Compliance Taxonomy Matrix[/bold blue]")
+    table = Table(title="Standards & Classifications Mapping", expand=True)
+    table.add_column("Category", style="cyan")
+    table.add_column("SWC (Web3)", style="magenta")
+    table.add_column("CWE (Universal)", style="yellow")
+    table.add_column("OWASP", style="blue")
+    table.add_column("Remediation Guideline", style="white")
+
+    for cat, info in ComplianceRegistry.REGISTRY.items():
+        table.add_row(
+            cat.value,
+            info["swc_id"],
+            info["cwe_id"],
+            info["owasp_category"],
+            info["remediation_guideline"]
+        )
+    console.print(table)
 
 
 @app.command()
@@ -159,7 +246,13 @@ jobs:
 
       - name: Run Empirical Audit
         run: |
-          uv run audit-agent scan . --output audit-summary.md --html audit-dashboard.html
+          uv run audit-agent scan . --output audit-summary.md --html audit-dashboard.html --sarif audit-results.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: audit-results.sarif
 
       - name: Upload Audit Dashboard
         uses: actions/upload-artifact@v4
@@ -186,7 +279,9 @@ def _export_markdown_report(summary, output_path: str):
     if not confirmed:
         md.append("No confirmed vulnerabilities found.\n")
     for f in confirmed:
+        comp = ComplianceRegistry.get_compliance_info(f.hypothesis.category)
         md.append(f"### [{f.hypothesis.severity.value.upper()}] {f.hypothesis.id}: {f.hypothesis.title}\n")
+        md.append(f"- **Standard**: `{comp['swc_id']}` / `{comp['cwe_id']}` ({comp['owasp_category']})")
         md.append(f"- **Category**: {f.hypothesis.category.value}")
         md.append(f"- **Preconditions**: {f.hypothesis.preconditions}")
         md.append(f"- **Expected Invariant Breach**: {f.hypothesis.expected_invariant_breach}")

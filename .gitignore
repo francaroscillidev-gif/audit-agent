@@ -13,6 +13,7 @@ wheels/
 audit_report*.md
 api_audit_report.md
 *.html
+*.sarif
 .pytest_cache/
 
 # Aggiunti automaticamente da push-to-github
