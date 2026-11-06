@@ -145,10 +145,14 @@ audit-agent/
 
 ---
 
-## 👤 Author
-- **Franca Roscilli**
-- GitHub: [@francaroscillidev-gif](https://github.com/francaroscillidev-gif)
-- Email: [francaroscillidev@gmail.com](mailto:francaroscillidev@gmail.com)
+## 📬 Contact, Support & Commercial Inquiries
+
+If you have questions, feedback, enterprise integration requests, or custom agent governance needs, feel free to reach out directly:
+
+- **Lead Developer & Maintainer:** Franca Roscilli
+- **Email:** [francaroscillidev@gmail.com](mailto:francaroscillidev@gmail.com)
+- **GitHub:** [@francaroscillidev-gif](https://github.com/francaroscillidev-gif)
+- **Bug Reports & Feature Requests:** [Open an issue on GitHub](https://github.com/francaroscillidev-gif/audit-agent/issues)
 
 ## 📜 License
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
