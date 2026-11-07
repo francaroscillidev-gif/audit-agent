@@ -17,6 +17,8 @@ Traditional SAST/DAST tools overwhelm developers with false positives because th
 - **Automated Verification Harness Synthesis**: Automatically drafts isolated test scripts (Foundry `.t.sol`, Pytest) targeted at proving the invariant breach.
 - **Empirical Execution & Invariant Checking**: Runs tests in an isolated sandbox or state simulator to empirically confirm exploits before alerting developers.
 - **False-Positive Elimination**: Drastically reduces alert fatigue by discarding unconfirmed theoretical warnings.
+- **Deep Code & Security Inspector**: Visualizes Control Flow Graphs (CFG), Basic Blocks, Data-Flow Taint tracking from sources to sensitive sinks, and Multi-Contract Call Graphs (`audit-agent inspect <target>`).
+- **CVSS v3.1 Threat & Financial Exposure Scoring**: Computes standard CVSS vectors, severity base scores (0.0 - 10.0), and estimated Protocol Financial Value at Risk (TVL exposure).
 - **Interactive Validated Patch Applier**: Automatically applies the verified security fix to source files and runs immediate re-verification (`audit-agent fix <target>`).
 - **Exploit-to-Test Transpiler**: Exports verified exploits as permanent regression test files (`test/Audit_HYP_001.t.sol` or `pytest`) so bugs can never recur (`audit-agent export-tests <target>`).
 - **Continuous Watch Daemon**: Real-time auditing background daemon that instantly re-audits code on file save (`audit-agent watch <target>`).
@@ -71,6 +73,12 @@ uv run audit-agent demo
 To audit with Markdown, HTML Dashboard, and GitHub Code Scanning SARIF:
 ```bash
 uv run audit-agent scan examples/ --output audit_report.md --html dashboard.html --sarif results.sarif
+```
+
+### Deep Code Inspection (CFG, Taint Analysis, Call Graph, CVSS)
+Analyze control flow graphs, unconstrained data-flow taint paths, and financial threat tiers:
+```bash
+uv run audit-agent inspect examples/VulnerableVault.sol
 ```
 
 ### Automatically Apply Verified Patches

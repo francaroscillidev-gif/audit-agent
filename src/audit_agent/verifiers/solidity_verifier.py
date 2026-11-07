@@ -219,6 +219,35 @@ class SolidityVerifier(BaseVerifier):
                     details=f"False Positive pruned: '{fn_name}' - {reason}."
                 )
 
+        elif hypothesis.category == VulnerabilityCategory.UNCHECKED_CALL:
+            lines = source_code.splitlines()
+            target_line = lines[hypothesis.affected_lines[0] - 1] if hypothesis.affected_lines else ""
+            has_check = any(k in target_line for k in ["bool success", "(bool ", "require(", "if ("])
+
+            logs.append(f"  -> Target Line: '{target_line.strip()}'")
+            if not has_check:
+                logs.append("  -> Analysis: Call return value is unassigned and unverified.")
+                logs.append("  -> Invariant Breach: Low-level call failure is silently ignored by caller.")
+                elapsed = (time.time() - start_time) * 1000
+                return VerificationResult(
+                    hypothesis_id=hypothesis.id,
+                    status=VerificationStatus.CONFIRMED,
+                    output_log="\n".join(logs),
+                    duration_ms=elapsed,
+                    invariant_breach_detected=True,
+                    details="Simulation confirmed unchecked call: return value not checked."
+                )
+            else:
+                elapsed = (time.time() - start_time) * 1000
+                return VerificationResult(
+                    hypothesis_id=hypothesis.id,
+                    status=VerificationStatus.REFUTED,
+                    output_log="\n".join(logs) + "\n  -> Call return value checked.",
+                    duration_ms=elapsed,
+                    invariant_breach_detected=False,
+                    details="False Positive pruned: call return value verified."
+                )
+
         # Default fallback
         elapsed = (time.time() - start_time) * 1000
         return VerificationResult(

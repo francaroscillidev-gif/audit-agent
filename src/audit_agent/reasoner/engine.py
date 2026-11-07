@@ -99,6 +99,40 @@ class SemanticReasoner:
                 hypotheses.append(hyp)
                 hyp_counter += 1
 
+            elif h_type == "POTENTIAL_UNCHECKED_CALL":
+                hyp = VulnerabilityHypothesis(
+                    id=f"HYP-{hyp_counter:03d}",
+                    title=f"Unchecked Return Value on Low-Level Call at line {h['line']}",
+                    severity=Severity.MEDIUM,
+                    category=VulnerabilityCategory.UNCHECKED_CALL,
+                    target_file=file_path,
+                    affected_lines=[h["line"]],
+                    description=h["detail"],
+                    preconditions="The low-level external call reverts or runs out of gas.",
+                    exploit_hypothesis="If the recipient address rejects the call, the contract continues execution assuming the transfer succeeded.",
+                    expected_invariant_breach="Contract state assumes transfer succeeded while recipient received 0 funds.",
+                    proposed_fix="Wrap the low-level call: (bool success, ) = target.call(...); require(success, 'Call failed');"
+                )
+                hypotheses.append(hyp)
+                hyp_counter += 1
+
+            elif h_type == "POTENTIAL_DELEGATECALL":
+                hyp = VulnerabilityHypothesis(
+                    id=f"HYP-{hyp_counter:03d}",
+                    title=f"Dangerous Low-Level Delegatecall at line {h['line']}",
+                    severity=Severity.CRITICAL,
+                    category=VulnerabilityCategory.AUTHORIZATION_BYPASS,
+                    target_file=file_path,
+                    affected_lines=[h["line"]],
+                    description=h["detail"],
+                    preconditions="An external caller passes arbitrary execution data or target to delegatecall.",
+                    exploit_hypothesis="Delegatecall executes code in the context of the caller's storage, allowing an attacker to overwrite slot 0 (owner) or drain funds.",
+                    expected_invariant_breach="Contract storage slot 0 overwritten with attacker address.",
+                    proposed_fix="Restrict delegatecall targets to an immutable or whitelist-governed implementation contract."
+                )
+                hypotheses.append(hyp)
+                hyp_counter += 1
+
             elif h_type == "POTENTIAL_IDOR_OR_UNAUTHENTICATED_ACCESS":
                 hyp = VulnerabilityHypothesis(
                     id=f"HYP-{hyp_counter:03d}",

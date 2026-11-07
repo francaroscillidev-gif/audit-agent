@@ -66,4 +66,24 @@ class WebAPIASTParser:
                     "detail": f"Endpoint receives an ID parameter without visible authentication/authorization dependency."
                 })
 
+        # Scan for SSRF and Subprocess Execution
+        for idx, line in enumerate(self.lines):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+
+            if re.search(r"(requests\.get|httpx\.get|urllib\.request\.urlopen)\s*\(", stripped) and not "http" in stripped:
+                heuristics.append({
+                    "heuristic": "POTENTIAL_SSRF",
+                    "line": idx + 1,
+                    "detail": f"HTTP client request receives dynamic variable URL at line {idx + 1}, risking Server-Side Request Forgery."
+                })
+
+            if re.search(r"(subprocess\.run|subprocess\.Popen|os\.system)\s*\(", stripped) and "shell=True" in stripped:
+                heuristics.append({
+                    "heuristic": "COMMAND_INJECTION_RISK",
+                    "line": idx + 1,
+                    "detail": f"Command execution with shell=True detected at line {idx + 1}, potential arbitrary command injection."
+                })
+
         return heuristics

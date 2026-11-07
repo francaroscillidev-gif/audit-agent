@@ -120,11 +120,31 @@ class SolidityASTParser:
 
         # 3. tx.origin authentication check
         for idx, line in enumerate(lines):
-            if "tx.origin" in line and not line.strip().startswith("//"):
+            stripped = line.strip()
+            if stripped.startswith("//") or stripped.startswith("/*"):
+                continue
+
+            if "tx.origin" in stripped and "==" in stripped:
                 heuristics.append({
                     "heuristic": "TX_ORIGIN_AUTHENTICATION",
                     "line": idx + 1,
-                    "detail": "Usage of tx.origin detected, which can lead to phishing-based authorization bypass."
+                    "detail": "Usage of tx.origin for authentication detected, vulnerable to phishing-based authorization bypass."
+                })
+
+            # 4. Unchecked low level call
+            if re.search(r"[A-Za-z0-9_]+\.call\{", stripped) and not any(k in stripped for k in ["bool success", "(bool ", "require(", "if ("]):
+                heuristics.append({
+                    "heuristic": "POTENTIAL_UNCHECKED_CALL",
+                    "line": idx + 1,
+                    "detail": "Low-level .call return value is not captured or checked with require(), allowing silent execution failures."
+                })
+
+            # 5. Dangerous delegatecall
+            if ".delegatecall(" in stripped:
+                heuristics.append({
+                    "heuristic": "POTENTIAL_DELEGATECALL",
+                    "line": idx + 1,
+                    "detail": "Low-level delegatecall detected; if target address or payload is user-controlled, this allows total contract takeover."
                 })
 
         return heuristics

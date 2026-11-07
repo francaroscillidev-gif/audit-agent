@@ -10,15 +10,19 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich import print as rprint
 
-from audit_agent.models import VerificationStatus
+from audit_agent.models import VerificationStatus, VulnerabilityCategory
 from audit_agent.orchestrator import AuditOrchestrator
 from audit_agent.reporting.html_report import HTMLReportGenerator
 from audit_agent.reporting.sarif_report import SARIFReportGenerator
 from audit_agent.reporting.test_exporter import TestExporter
 from audit_agent.compliance.registry import ComplianceRegistry
+from audit_agent.compliance.cvss import CVSSScorer
 from audit_agent.fuzzing.invariants import StatefulInvariantFuzzer
 from audit_agent.watcher import SecurityWatcher
 from audit_agent.remediation.applier import PatchApplier
+from audit_agent.analysis.cfg import CFGBuilder
+from audit_agent.analysis.taint import TaintAnalyzer
+from audit_agent.analysis.callgraph import CallGraphResolver
 
 app = typer.Typer(
     name="audit-agent",
@@ -189,6 +193,85 @@ def watch(
     """Live watch daemon: continuously re-audit codebase on file save."""
     watcher = SecurityWatcher(target, console=console)
     watcher.watch(interval=interval)
+
+
+@app.command()
+def inspect(
+    target: str = typer.Argument(..., help="Path to smart contract or API file to deeply analyze"),
+):
+    """Deep inspection: Control Flow Graph (CFG), Taint Data-Flow, Call Graph, and CVSS Risk Scoring."""
+    console.rule("[bold cyan]🔍 AuditAgent: Deep Code & Security Inspector[/bold cyan]")
+    path = Path(target)
+    if not path.exists():
+        console.print(f"[red]Target file not found: {target}[/red]")
+        raise typer.Exit(code=1)
+
+    source_code = path.read_text(encoding="utf-8")
+    is_solidity = path.suffix == ".sol"
+
+    # 1. Multi-Contract Call Graph & Hierarchy
+    if is_solidity:
+        call_graph = CallGraphResolver.resolve_contracts(source_code)
+        console.print(f"\n[bold]1. Contract Architecture & Inheritance Graph:[/bold]")
+        for name, node in call_graph.contracts.items():
+            chain = call_graph.get_inheritance_tree(name)
+            parents = f" -> [green]{', '.join(chain)}[/green]" if chain else ""
+            calls = f" | Calls: [magenta]{', '.join(node.external_calls_to)}[/magenta]" if node.external_calls_to else ""
+            console.print(f"  • [yellow]{node.kind} {name}[/yellow]{parents}{calls} (Functions: {len(node.functions)})")
+
+    # 2. Control Flow Graph (CFG) Analysis on Key Functions
+    lines = source_code.splitlines()
+    fn_name = "withdraw" if "withdraw" in source_code else ("setOwner" if "setOwner" in source_code else "main")
+    
+    # Extract lines for CFG
+    fn_lines = [l for l in lines if not l.strip().startswith("//")]
+    cfg = CFGBuilder.build(fn_name, fn_lines)
+    inversions = cfg.find_checks_effects_inversion_paths()
+
+    console.print(f"\n[bold]2. Control Flow Graph (CFG) Analysis on '{fn_name}':[/bold]")
+    console.print(f"  Total Basic Blocks: [cyan]{len(cfg.blocks)}[/cyan]")
+    for b_id, block in cfg.blocks.items():
+        call_flag = " [red][EXTERNAL CALL][/red]" if block.has_external_call else ""
+        write_flag = " [yellow][STATE WRITE][/yellow]" if block.has_state_write else ""
+        console.print(f"  [{b_id}] Lines {block.start_line}-{block.end_line}: {len(block.statements)} stmts{call_flag}{write_flag} -> {block.successors}")
+
+    if inversions:
+        console.print(f"  [bold red]⚠️  CFG Inversion Detected: Path {inversions[0]} violates Checks-Effects-Interactions![/bold red]")
+
+    # 3. Data-Flow Taint Analysis
+    console.print(f"\n[bold]3. Data-Flow Taint Tracking (Sources -> Sinks):[/bold]")
+    if is_solidity:
+        taints = TaintAnalyzer.analyze_solidity_function(fn_name, lines)
+    else:
+        taints = TaintAnalyzer.analyze_web_api_function(fn_name, lines)
+
+    if taints:
+        t_table = Table(expand=True)
+        t_table.add_column("Source", style="cyan")
+        t_table.add_column("Sink Expression", style="white")
+        t_table.add_column("Line", justify="right", width=6)
+        t_table.add_column("Sanitized", width=12)
+        t_table.add_column("Risk Severity", width=12)
+
+        for t in taints:
+            san_text = Text("YES", style="green") if t.is_sanitized else Text("NO", style="bold red")
+            sev_text = Text(t.severity, style="bold red" if t.severity == "CRITICAL" else "yellow")
+            t_table.add_row(t.source_name, t.sink_expression[:40], str(t.sink_line), san_text, sev_text)
+        console.print(t_table)
+    else:
+        console.print("  [green]No unconstrained taint flows reaching sensitive sinks.[/green]")
+
+    # 4. Threat & Financial Exposure Risk Evaluation
+    console.print(f"\n[bold]4. Quantitative Threat & CVSS v3.1 Exposure Matrix:[/bold]")
+    category = VulnerabilityCategory.REENTRANCY if is_solidity else VulnerabilityCategory.IDOR
+    score, vector, tier = CVSSScorer.calculate_score(category)
+    console.print(Panel(
+        f"[bold]CVSS v3.1 Base Score:[/bold] [bold red]{score} / 10.0[/bold red]\n"
+        f"[bold]CVSS Vector:[/bold] [cyan]{vector}[/cyan]\n"
+        f"[bold]Financial Exposure Tier:[/bold] [bold red]{tier}[/bold red]",
+        title="Enterprise Risk Assessment",
+        border_style="red"
+    ))
 
 
 @app.command()

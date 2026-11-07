@@ -13,8 +13,12 @@ from audit_agent.reporting.test_exporter import TestExporter
 from audit_agent.reasoner.engine import SemanticReasoner
 from audit_agent.reasoner.providers import LLMProviderAdapter
 from audit_agent.compliance.registry import ComplianceRegistry
+from audit_agent.compliance.cvss import CVSSScorer
 from audit_agent.fuzzing.invariants import StatefulInvariantFuzzer
 from audit_agent.remediation.applier import PatchApplier
+from audit_agent.analysis.cfg import CFGBuilder
+from audit_agent.analysis.taint import TaintAnalyzer
+from audit_agent.analysis.callgraph import CallGraphResolver
 
 
 def test_solidity_parser_heuristics():
@@ -148,6 +152,50 @@ def test_llm_provider_adapter():
     assert adapter.complete("test prompt") is None
     gemini_adapter = LLMProviderAdapter(provider="gemini", api_key="dummy_key")
     assert gemini_adapter.model == "gemini-2.5-flash"
+
+
+def test_cfg_builder():
+    fn_lines = [
+        "function withdraw() external {",
+        "    msg.sender.call{value: 10}('');",
+        "    balances[msg.sender] = 0;",
+        "}"
+    ]
+    cfg = CFGBuilder.build("withdraw", fn_lines)
+    assert len(cfg.blocks) >= 2
+    assert cfg.entry_block == "B0"
+
+
+def test_taint_analyzer():
+    fn_lines = [
+        "function setOwner(address newOwner) external {",
+        "    owner = newOwner;",
+        "}"
+    ]
+    flows = TaintAnalyzer.analyze_solidity_function("setOwner", fn_lines)
+    assert len(flows) >= 1
+    assert any(f.sink_type == "OWNER_MUTATION" for f in flows)
+
+
+def test_callgraph_resolver():
+    code = """
+    contract BaseContract { }
+    contract MyVault is BaseContract {
+        function foo() external {
+            otherContract.callMe();
+        }
+    }
+    """
+    cg = CallGraphResolver.resolve_contracts(code)
+    assert "MyVault" in cg.contracts
+    assert "BaseContract" in cg.get_inheritance_tree("MyVault")
+
+
+def test_cvss_scorer():
+    score, vector, tier = CVSSScorer.calculate_score(VulnerabilityCategory.REENTRANCY)
+    assert score == 9.8
+    assert "CVSS:3.1" in vector
+    assert "EXTREME" in tier
 
 
 def test_project_wide_audit():
