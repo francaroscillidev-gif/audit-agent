@@ -1,6 +1,22 @@
-# 🛡️ AuditAgent: Self-Auditing & Compliance Security Agent
+<p align="center">
+  <img src="assets/icon.png" width="160" height="160" alt="AuditAgent Logo" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0, 242, 254, 0.2);" />
+</p>
 
-> **Autonomous open-source security agent combining AST static analysis, LLM semantic reasoning, and empirical Proof-of-Concept (PoC) verification for Smart Contracts and Web Applications.**
+<h1 align="center">🛡️ AuditAgent</h1>
+<p align="center">
+  <strong>Autonomous Enterprise Security & Compliance Agent with Empirical Proof-of-Concept Verification</strong><br>
+  <em>For Web3 Smart Contracts (Solidity/Foundry) and Web Application APIs</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/francaroscillidev-gif/audit-agent/actions"><img src="https://img.shields.io/badge/CI%2FCD-passing-brightgreen?style=flat-square" alt="CI Status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square" alt="License"></a>
+  <a href="https://github.com/francaroscillidev-gif/audit-agent/releases"><img src="https://img.shields.io/badge/version-1.0.0-blueviolet?style=flat-square" alt="Version"></a>
+  <a href="https://swcregistry.io"><img src="https://img.shields.io/badge/SWC%20Registry-Compliant-emerald?style=flat-square" alt="SWC Compliant"></a>
+  <a href="https://cwe.mitre.org"><img src="https://img.shields.io/badge/CWE%20%2F%20OWASP-Covered-orange?style=flat-square" alt="CWE Covered"></a>
+</p>
+
+---
 
 Traditional SAST/DAST tools overwhelm developers with false positives because they flag structural patterns without understanding context. Manual audits, while thorough, cost tens of thousands of dollars.
 
