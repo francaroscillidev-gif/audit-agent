@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AuditAgent: Scan Active File",
+      "type": "shell",
+      "command": "uv run audit-agent scan \"${file}\"",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AuditAgent: Deep Inspect (CFG + Taint)",
+      "type": "shell",
+      "command": "uv run audit-agent inspect \"${file}\"",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AuditAgent: Gas & MEV Audit",
+      "type": "shell",
+      "command": "uv run audit-agent gas-audit \"${file}\"",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AuditAgent: Stateful Invariant Fuzzing",
+      "type": "shell",
+      "command": "uv run audit-agent fuzz \"${file}\" --runs 100",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

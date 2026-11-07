@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+*.bak
+*.sarif
+*.html
+audit_report*.md
+api_audit_report.md

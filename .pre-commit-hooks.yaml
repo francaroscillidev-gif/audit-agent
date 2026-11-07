@@ -1,0 +1,17 @@
+- id: audit-agent-scan
+  name: AuditAgent Empirical Security Scan
+  description: Autonomous empirical security auditing for Smart Contracts and APIs
+  entry: audit-agent scan
+  language: python
+  types_or: [solidity, python]
+  pass_filenames: true
+  stages: [pre-commit]
+
+- id: audit-agent-gas
+  name: AuditAgent Gas & MEV Optimization Audit
+  description: Gas optimization and front-running audit for Solidity contracts
+  entry: audit-agent gas-audit
+  language: python
+  types: [solidity]
+  pass_filenames: true
+  stages: [pre-commit]

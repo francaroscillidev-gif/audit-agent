@@ -33,6 +33,10 @@ Traditional SAST/DAST tools overwhelm developers with false positives because th
 - **Automated Verification Harness Synthesis**: Automatically drafts isolated test scripts (Foundry `.t.sol`, Pytest) targeted at proving the invariant breach.
 - **Empirical Execution & Invariant Checking**: Runs tests in an isolated sandbox or state simulator to empirically confirm exploits before alerting developers.
 - **False-Positive Elimination**: Drastically reduces alert fatigue by discarding unconfirmed theoretical warnings.
+- **MEV & Gas Optimization Engine**: Identifies front-running / sandwich vectors (zero slippage `amountOutMin == 0`, unsafe `block.timestamp` deadlines) and actionable gas optimizations (`calldata` vs `memory`, struct packing, `unchecked { ++i; }`).
+- **Live Web Dashboard Server**: Spins up an instant local HTTP dashboard with real-time inspection (`audit-agent serve`).
+- **Docker & Container Ready**: Multi-stage ultra-light Dockerfile for zero-install CI/CD environments.
+- **Pre-commit & VS Code Integration**: Native `.pre-commit-hooks.yaml` and `.vscode/tasks.json` recipes.
 - **Deep Code & Security Inspector**: Visualizes Control Flow Graphs (CFG), Basic Blocks, Data-Flow Taint tracking from sources to sensitive sinks, and Multi-Contract Call Graphs (`audit-agent inspect <target>`).
 - **CVSS v3.1 Threat & Financial Exposure Scoring**: Computes standard CVSS vectors, severity base scores (0.0 - 10.0), and estimated Protocol Financial Value at Risk (TVL exposure).
 - **Interactive Validated Patch Applier**: Automatically applies the verified security fix to source files and runs immediate re-verification (`audit-agent fix <target>`).
@@ -117,6 +121,36 @@ uv run audit-agent export-tests examples/VulnerableVault.sol --outdir tests/secu
 Monitor files for modifications and re-audit on save:
 ```bash
 uv run audit-agent watch examples/
+```
+
+### Gas & MEV Optimization Audit
+Detect front-running/sandwich vulnerabilities and actionable gas savings:
+```bash
+uv run audit-agent gas-audit examples/DeFiSwapVault.sol
+```
+
+### Launch Local Web Dashboard Server
+Serve and browse the interactive security dashboard locally:
+```bash
+uv run audit-agent serve audit_report_demo.html --port 8080
+```
+
+### 🐳 Docker Usage (Zero-Install)
+Run scans with Docker without installing Python or local toolchains:
+```bash
+docker build -t audit-agent .
+docker run --rm -v $(pwd):/app audit-agent scan /app/examples/VulnerableVault.sol
+```
+
+### 🪝 Pre-commit Hook Integration
+Add to your `.pre-commit-config.yaml` to automatically block commits with verified exploits:
+```yaml
+repos:
+  - repo: https://github.com/francaroscillidev-gif/audit-agent
+    rev: v1.0.0
+    hooks:
+      - id: audit-agent-scan
+      - id: audit-agent-gas
 ```
 
 ### Property-Based Invariant Fuzzing

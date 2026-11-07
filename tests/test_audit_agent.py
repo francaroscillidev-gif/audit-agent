@@ -198,6 +198,15 @@ def test_cvss_scorer():
     assert "EXTREME" in tier
 
 
+def test_gas_mev_analyzer():
+    from audit_agent.analysis.gas_mev import GasMEVAnalyzer
+    defi_code = Path("examples/DeFiSwapVault.sol").read_text()
+    items = GasMEVAnalyzer.analyze(defi_code)
+    assert len(items) >= 4
+    assert any(i.category == "MEV_VULNERABILITY" for i in items)
+    assert any(i.category == "GAS_OPTIMIZATION" for i in items)
+
+
 def test_project_wide_audit():
     orchestrator = AuditOrchestrator()
     summary = orchestrator.run_project_audit("examples")

@@ -23,6 +23,8 @@ from audit_agent.remediation.applier import PatchApplier
 from audit_agent.analysis.cfg import CFGBuilder
 from audit_agent.analysis.taint import TaintAnalyzer
 from audit_agent.analysis.callgraph import CallGraphResolver
+from audit_agent.analysis.gas_mev import GasMEVAnalyzer
+from audit_agent.server import DashboardServer
 
 app = typer.Typer(
     name="audit-agent",
@@ -344,6 +346,72 @@ def compliance():
             info["remediation_guideline"]
         )
     console.print(table)
+
+
+@app.command("gas-audit")
+def gas_audit(
+    target: str = typer.Argument(..., help="Path to Solidity smart contract (.sol)"),
+):
+    """Analyze contract for MEV / front-running vulnerabilities and actionable Gas optimizations."""
+    console.rule("[bold green]⛽ AuditAgent: MEV & Gas Optimization Engine[/bold green]")
+    path = Path(target)
+    if not path.exists():
+        console.print(f"[red]Target file not found: {target}[/red]")
+        raise typer.Exit(code=1)
+
+    source_code = path.read_text(encoding="utf-8")
+    items = GasMEVAnalyzer.analyze(source_code)
+
+    if not items:
+        console.print("[green]No obvious MEV vectors or gas optimizations detected.[/green]")
+        return
+
+    mev_items = [i for i in items if i.category == "MEV_VULNERABILITY"]
+    gas_items = [i for i in items if i.category == "GAS_OPTIMIZATION"]
+
+    if mev_items:
+        console.print(f"\n[bold red]🚨 MEV & Front-Running Vulnerabilities ({len(mev_items)}):[/bold red]")
+        m_table = Table(expand=True)
+        m_table.add_column("Line", justify="right", width=6)
+        m_table.add_column("Vulnerability Title", style="bold red")
+        m_table.add_column("Severity", width=10)
+        m_table.add_column("Impact & Recommendation", style="white")
+
+        for m in mev_items:
+            m_table.add_row(
+                str(m.line_number),
+                m.title,
+                Text(m.severity, style="bold red"),
+                f"{m.description}\n[green]Fix:[/green] {m.recommendation}"
+            )
+        console.print(m_table)
+
+    if gas_items:
+        console.print(f"\n[bold yellow]⚡ Gas Optimization Opportunities ({len(gas_items)}):[/bold yellow]")
+        g_table = Table(expand=True)
+        g_table.add_column("Line", justify="right", width=6)
+        g_table.add_column("Optimization", style="yellow")
+        g_table.add_column("Estimated Savings", style="bold green", width=22)
+        g_table.add_column("Recommendation", style="white")
+
+        for g in gas_items:
+            g_table.add_row(
+                str(g.line_number),
+                g.title,
+                g.estimated_gas_savings,
+                f"{g.description}\n[green]Action:[/green] {g.recommendation}"
+            )
+        console.print(g_table)
+
+
+@app.command()
+def serve(
+    report: str = typer.Argument("audit_report_demo.html", help="Path to generated HTML audit report"),
+    port: int = typer.Option(8080, "--port", "-p", help="Port to serve the dashboard on"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not automatically open browser"),
+):
+    """Launch local HTTP server to view the interactive HTML security dashboard."""
+    DashboardServer.start(report_path=report, port=port, open_browser=not no_browser)
 
 
 @app.command()
