@@ -7,6 +7,32 @@ license = { text = "Apache-2.0" }
 authors = [
     { name = "franca roscilli", email = "francaroscillidev@gmail.com" }
 ]
+keywords = [
+    "security",
+    "smart-contracts",
+    "solidity",
+    "audit",
+    "fuzzing",
+    "sast",
+    "agent",
+    "llm",
+    "foundry",
+    "web3",
+    "defi",
+    "cwe",
+    "owasp",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
 requires-python = ">=3.12"
 dependencies = [
     "jinja2>=3.1.6",
@@ -14,6 +40,12 @@ dependencies = [
     "rich>=15.0.0",
     "typer>=0.28.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/francaroscillidev-gif/audit-agent"
+Documentation = "https://github.com/francaroscillidev-gif/audit-agent#readme"
+Repository = "https://github.com/francaroscillidev-gif/audit-agent.git"
+Issues = "https://github.com/francaroscillidev-gif/audit-agent/issues"
 
 [project.scripts]
 audit-agent = "audit_agent:main"

@@ -32,6 +32,24 @@ app = typer.Typer(
 )
 console = Console()
 
+__version__ = "1.0.0"
+
+
+def version_callback(value: bool):
+    if value:
+        console.print(f"[bold cyan]AuditAgent[/bold cyan] version [bold green]{__version__}[/bold green] (Enterprise Edition)")
+        raise typer.Exit()
+
+
+@app.callback()
+def main_callback(
+    version: Optional[bool] = typer.Option(
+        None, "--version", "-v", help="Show the application version and exit.", callback=version_callback, is_eager=True
+    ),
+):
+    """Autonomous Security & Compliance Agent with Empirical Proof-of-Concept Verification."""
+    pass
+
 
 @app.command()
 def scan(

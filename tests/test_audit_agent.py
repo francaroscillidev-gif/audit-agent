@@ -227,3 +227,12 @@ def test_harness_self_repair():
     error_log = "Error: Function not found or pragma missing"
     repaired = reasoner.repair_test_harness(faulty_harness, error_log, "")
     assert "pragma solidity" in repaired.test_code
+
+
+def test_cli_version_flag():
+    from typer.testing import CliRunner
+    from audit_agent.cli import app
+    runner = CliRunner()
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "AuditAgent version 1.0.0" in result.output
